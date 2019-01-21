@@ -36,6 +36,63 @@ TEST(ParticleFilter, Prediction) {
   EXPECT_DOUBLE_EQ(got.theta, (51.0*M_PI/80.0));
 }
 
+TEST(ParticleFilter, DataAssociation) {
+  ParticleFilter pf(1);
+  
+  // tobs are observations already converted to world coords
+  vector<LandmarkObs> tobs;
+  LandmarkObs tobs1, tobs2, tobs3;
+  tobs1.id = 0;
+  tobs1.x = 6;
+  tobs1.y = 3;
+  tobs.push_back(tobs1);
+  
+  tobs2.id = 0;
+  tobs2.x = 2;
+  tobs2.y = 2;
+  tobs.push_back(tobs2);
+  
+  tobs3.id = 0;
+  tobs3.x = 0;
+  tobs3.y = 5;
+  tobs.push_back(tobs3);
+  
+  Map map_landmarks;
+  Map::single_landmark_s l1, l2, l3, l4, l5;
+  l1.id_i = 1;
+  l1.x_f = 5;
+  l1.y_f = 3;
+  map_landmarks.landmark_list.push_back(l1);
+  
+  l2.id_i = 2;
+  l2.x_f = 2;
+  l2.y_f = 1;
+  map_landmarks.landmark_list.push_back(l2);
+  
+  l3.id_i = 3;
+  l3.x_f = 6;
+  l3.y_f = 1;
+  map_landmarks.landmark_list.push_back(l3);
+  
+  l4.id_i = 4;
+  l4.x_f = 7;
+  l4.y_f = 4;
+  map_landmarks.landmark_list.push_back(l4);
+  
+  l5.id_i = 5;
+  l5.x_f = 4;
+  l5.y_f = 7;
+  map_landmarks.landmark_list.push_back(l5);
+  
+  pf.dataAssociation(map_landmarks, tobs);
+  
+  auto& got = pf.particles[0];
+  // !! WARNING !! does not modify original tobs objects
+  EXPECT_EQ(tobs[0].id, 1);
+  EXPECT_EQ(tobs[1].id, 2);
+  EXPECT_EQ(tobs[2].id, 2);
+}
+
 TEST(ParticleFilter, UpdateWeights) {
   ParticleFilter pf(1);
   // Test without noise to make assertions easier.
@@ -45,7 +102,7 @@ TEST(ParticleFilter, UpdateWeights) {
   
   double sensor_range(-1);
   // Test without noise to make assertions easier.
-  double std_landmark [2] = {0, 0};
+  double std_landmark [2] = {0.3, 0.3};
   
   vector<LandmarkObs> observations;
   LandmarkObs obs1, obs2, obs3;
@@ -94,7 +151,9 @@ TEST(ParticleFilter, UpdateWeights) {
   pf.updateWeights(sensor_range, std_landmark, observations, map_landmarks);
   
   auto& got = pf.particles[0];
-  EXPECT_DOUBLE_EQ(got.weight, 4.60e-53);
+  EXPECT_DOUBLE_EQ(got.weight, 1);
+  // non-normalized weight below
+  // EXPECT_DOUBLE_EQ(got.weight, 4.5951129344586861e-53);
 }
 
 int main(int argc, char **argv) {

@@ -66,20 +66,28 @@ void ParticleFilter::dataAssociation(const Map &map_landmarks, /*vector<Landmark
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
-  for (auto& o : observations) {
+  for (int oi = 0; oi < observations.size(); oi++) {
+    auto& o = observations[oi];
     int min_id;
     double min_d;
     for (int i = 0; i < map_landmarks.landmark_list.size(); i++) {
       auto& p = map_landmarks.landmark_list[i];
       auto d = dist(o.x, o.y, p.x_f, p.y_f);
+      // std::cout << "observation index " << oi << " -- got distance " << d << " for landmark " << p.id_i << std::endl;
       if (d < min_d || i == 0) {
+        // std::cout << "keeping as min for observation" << std::endl;
         min_id = p.id_i;
         min_d = d;
       }
     }
     o.id = min_id;
+    // learn now to store references in vectors
+    observations[oi] = o;
+    // std::cout << "observation index " << oi << " associated with landmark id " << o.id << std::endl;
   }
 }
+
+//void ParticleFilter::carObsToMapCoords(const vector<LandmarkObs> &observations
 
   /**
    * updateWeights Updates the weights for each particle based on the likelihood
@@ -107,7 +115,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */  
   double total_weight=0;
-  for (auto& p : particles) {
+  for (int parti = 0; parti < particles.size(); parti++) {
+    auto& p = particles[parti];
     vector<LandmarkObs> t_observations;
     for (auto& o : observations) {
       // convert observation into map space
@@ -121,7 +130,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     dataAssociation(map_landmarks, t_observations);
     // calculate prob of each landmark/observation pair and accumulate via multiplication
     double total_prob(1.0);
-    for (auto& o : observations) {
+    
+    // Tracking associations for debugging
+    vector<int> associations;
+    vector<double> sense_x;
+    vector<double> sense_y;
+    
+    //bool printed_nan_bug = false;
+    
+    // only t_observations has updated IDs. "observations" does not since it wasn't modified.
+    for (auto& o : t_observations) {
       const auto& std_x = std_landmark[0];
       const auto& std_y = std_landmark[1];
       // TODO: clean this up
@@ -133,12 +151,28 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
           landmark_y = lm.y_f;
         }
       }
+      associations.push_back(o.id);
+      sense_x.push_back(landmark_x);
+      sense_y.push_back(landmark_y);
+      
+      if (std::isnan(o.x) || std::isnan(o.y)) {
+        continue;
+      }
       total_prob *= multiv_prob(std_x, std_y, o.x, o.y, landmark_x, landmark_y);
+      //if (std::isnan(total_prob) && !printed_nan_bug) {
+      //  printed_nan_bug = true;
+      //	std::cout << "particle index " << parti << " o.x " << o.x << " o.y " << o.y << " landmark_x " << landmark_x << " landmark_y " << landmark_y << " current total prob " << total_prob << std::endl;
+      //}
     }
+    SetAssociations(p, associations, sense_x, sense_y);
     // Assign final weight (accumulated probability)
     p.weight = total_prob;
+    //std::cout << "particle index " << parti << " pre-normalized weight " << p.weight << std::endl;
+    // getting around vector reference stuff
+    particles[parti] = p;
     total_weight += total_prob;
   }
+  // std::cout << "number of observations " << observations.size() << " total weight " << total_weight << std::endl;
   // Normalize weights
   for (auto& p : particles) {
     p.weight /= total_weight;
@@ -152,6 +186,7 @@ void ParticleFilter::resample() {
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
+  // std::cout << "before max prob" << std::endl;
   double max_prob = particles[0].weight;
   for (auto& p : particles) {
     if (p.weight > max_prob) {
@@ -159,13 +194,14 @@ void ParticleFilter::resample() {
     }
   }
   
+  // std::cout << "before sampling" << std::endl;
   std::vector<Particle> sampled_particles;
   for (auto& p : particles) {
     int index = rand()%particles.size();
     double beta = max_prob*2;
     while (particles[index].weight < beta) {
       beta -= particles[index].weight;
-      index++;
+      index = (index+1)%particles.size();
     }
     sampled_particles.push_back(particles[index]);
   }

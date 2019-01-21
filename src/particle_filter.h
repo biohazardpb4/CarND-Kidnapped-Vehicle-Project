@@ -9,6 +9,7 @@
 #ifndef PARTICLE_FILTER_H_
 #define PARTICLE_FILTER_H_
 
+#include <random>
 #include <string>
 #include <vector>
 #include "helper_functions.h"
@@ -63,7 +64,7 @@ class ParticleFilter {
    * @param predicted Vector of predicted landmark observations
    * @param observations Vector of landmark observations
    */
-  void dataAssociation(std::vector<LandmarkObs> predicted, 
+  void dataAssociation(const Map &map_landmarks, //std::vector<LandmarkObs> predicted, 
                        std::vector<LandmarkObs>& observations);
   
   /**
@@ -114,6 +115,8 @@ class ParticleFilter {
  private:
   // Number of particles to draw
   int num_particles; 
+  
+  std::default_random_engine gen;
   
   // Flag, if filter is initialized
   bool is_initialized;

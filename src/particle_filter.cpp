@@ -44,8 +44,13 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
                                 double velocity, double yaw_rate) {
   const auto& v(velocity);
 	for (auto& p : particles) {
-      p.x = p.x + v/yaw_rate * (sin(p.theta + yaw_rate*delta_t) - sin(p.theta));
-      p.y = p.y + v/yaw_rate * (cos(p.theta) - cos(p.theta + yaw_rate*delta_t));
+      if (yaw_rate != 0.0) {
+      	p.x = p.x + v/yaw_rate * (sin(p.theta + yaw_rate*delta_t) - sin(p.theta));
+      	p.y = p.y + v/yaw_rate * (cos(p.theta) - cos(p.theta + yaw_rate*delta_t));
+      } else {
+        p.x += v*cos(p.theta);
+        p.y += v*sin(p.theta);
+      }
       p.theta = p.theta + yaw_rate*delta_t;
       
       // Add noise
@@ -118,6 +123,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   for (int parti = 0; parti < particles.size(); parti++) {
     auto& p = particles[parti];
     vector<LandmarkObs> t_observations;
+    
+    bool printed_nan_bug = false;
+    
     for (auto& o : observations) {
       // convert observation into map space
       LandmarkObs t_observation;
@@ -125,6 +133,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       t_observation.y = p.y + (sin(p.theta)*o.x) + (cos(p.theta)*o.y);
       t_observation.id = o.id;
       t_observations.push_back(t_observation);
+      
+      if (std::isnan(t_observation.x) || std::isnan(t_observation.y)) {
+        if (!printed_nan_bug) {
+          printed_nan_bug = true;
+          std::cout << "particle index " << parti << " p.x " << p.x << " p.y " << p.y << " t_observation.x " << t_observation.x << " t_observation.y " << t_observation.y << " p.theta " << p.theta << std::endl;
+          exit(1);
+        }
+      }
     }
     // find the closest landmark to each observation
     dataAssociation(map_landmarks, t_observations);
@@ -135,8 +151,6 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     vector<int> associations;
     vector<double> sense_x;
     vector<double> sense_y;
-    
-    //bool printed_nan_bug = false;
     
     // only t_observations has updated IDs. "observations" does not since it wasn't modified.
     for (auto& o : t_observations) {
@@ -155,14 +169,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       sense_x.push_back(landmark_x);
       sense_y.push_back(landmark_y);
       
-      if (std::isnan(o.x) || std::isnan(o.y)) {
-        continue;
-      }
       total_prob *= multiv_prob(std_x, std_y, o.x, o.y, landmark_x, landmark_y);
-      //if (std::isnan(total_prob) && !printed_nan_bug) {
-      //  printed_nan_bug = true;
-      //	std::cout << "particle index " << parti << " o.x " << o.x << " o.y " << o.y << " landmark_x " << landmark_x << " landmark_y " << landmark_y << " current total prob " << total_prob << std::endl;
-      //}
     }
     SetAssociations(p, associations, sense_x, sense_y);
     // Assign final weight (accumulated probability)

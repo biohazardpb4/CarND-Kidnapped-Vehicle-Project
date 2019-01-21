@@ -38,6 +38,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     p.weight = 1;
     particles.push_back(p);
   }
+  is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 

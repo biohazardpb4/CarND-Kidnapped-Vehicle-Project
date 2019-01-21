@@ -27,7 +27,6 @@ using std::vector;
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
   normal_distribution<double> dist_x(x, std[0]),
     dist_y(y, std[1]), dist_theta(theta, std[2]);
-  num_particles = 1000;
   for (int i = 0; i < num_particles; i++) {
     // Initialize all particles to first position (based on estimates of x, y, theta and their uncertainties from GPS) and all weights to 1.
     // Add random Gaussian noise to each particle.
